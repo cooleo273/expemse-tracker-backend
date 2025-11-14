@@ -47,6 +47,51 @@ const summarizeFieldValue = (field: unknown): unknown => {
   return null;
 };
 
+interface FlatFieldValueObject {
+  [key: string]: FlatFieldValue;
+}
+
+type FlatFieldValue = string | number | boolean | null | FlatFieldValue[] | FlatFieldValueObject;
+
+const flattenFields = (fields: Map<string, unknown>): FlatFieldValueObject => {
+  const flattened: FlatFieldValueObject = {};
+
+  fields.forEach((value, key) => {
+    flattened[key] = normalizeFieldValue(value);
+  });
+
+  return flattened;
+};
+
+const normalizeFieldValue = (field: unknown): FlatFieldValue => {
+  if (!field || typeof field !== "object") {
+    return null;
+  }
+
+  if (hasKey("value", field)) {
+    const fieldValue = field.value;
+    if (
+      fieldValue === null ||
+      typeof fieldValue === "string" ||
+      typeof fieldValue === "number" ||
+      typeof fieldValue === "boolean"
+    ) {
+      return fieldValue;
+    }
+    return String(fieldValue);
+  }
+
+  if (hasKey("items", field) && Array.isArray(field.items)) {
+    return field.items.map((item) => normalizeFieldValue(item));
+  }
+
+  if (hasKey("fields", field) && field.fields instanceof Map) {
+    return flattenFields(field.fields as Map<string, unknown>);
+  }
+
+  return null;
+};
+
 const healthPaths: string[] = ["/health", "/api/health"];
 app.head(healthPaths, (_req, res) => {
   res.status(204).end();
@@ -80,11 +125,12 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
     );
 
     const inferenceId = response.inference.id;
-    const fields = response.inference.result.fields;
-    const fieldKeys = Array.from(fields.keys());
+    const resultFields = response.inference.result.fields;
+    const flattenedFields = flattenFields(resultFields as Map<string, unknown>);
+    const fieldKeys = Object.keys(flattenedFields);
     const fieldPreview = Object.fromEntries(
       fieldKeys.slice(0, 5).map((fieldName) => {
-        return [fieldName, summarizeFieldValue(fields.get(fieldName))];
+        return [fieldName, flattenedFields[fieldName]];
       })
     );
 
@@ -97,7 +143,7 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
 
     res.json({
       inference: response.inference,
-      fields,
+      fields: flattenedFields,
     });
   } catch (error) {
     console.error("Mindee processing failed", error);
