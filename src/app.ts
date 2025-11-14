@@ -23,11 +23,17 @@ const upload = multer({
 });
 
 const healthPaths: string[] = ["/health", "/api/health"];
+app.head(healthPaths, (_req, res) => {
+  res.status(204).end();
+});
 app.get(healthPaths, (_req, res) => {
   res.json({ status: "ok" });
 });
 
 const receiptPaths: string[] = ["/api/receipt/parse", "/receipt/parse"];
+app.head(receiptPaths, (_req, res) => {
+  res.status(204).end();
+});
 app.post(receiptPaths, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Missing file upload named 'file'" });

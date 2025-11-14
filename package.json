@@ -20,6 +20,7 @@
     "multer": "^2.0.2"
   },
   "devDependencies": {
+    "@vercel/node": "^3.2.7",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/multer": "^2.0.0",
