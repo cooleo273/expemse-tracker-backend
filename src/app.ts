@@ -22,6 +22,31 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const hasKey = <K extends string>(key: K, value: unknown): value is Record<K, unknown> => {
+  return typeof value === "object" && value !== null && key in value;
+};
+
+const summarizeFieldValue = (field: unknown): unknown => {
+  if (!field || typeof field !== "object") {
+    return null;
+  }
+
+  if (hasKey("value", field)) {
+    return field.value ?? null;
+  }
+
+  if (hasKey("items", field)) {
+    const items = Array.isArray(field.items) ? field.items.length : 0;
+    return `list(${items})`;
+  }
+
+  if (hasKey("fields", field)) {
+    return "object";
+  }
+
+  return null;
+};
+
 const healthPaths: string[] = ["/health", "/api/health"];
 app.head(healthPaths, (_req, res) => {
   res.status(204).end();
@@ -54,17 +79,20 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
       inferenceParams
     );
 
-    type JobMetadata = { id?: string; status?: string };
-    const inferenceWithJob = response.inference as typeof response.inference & {
-      job?: JobMetadata;
-    };
-    const job = inferenceWithJob.job;
-    const fields = response.inference.result.fields ?? {};
+    const inferenceId = response.inference.id;
+    const fields = response.inference.result.fields;
+    const fieldKeys = Array.from(fields.keys());
+    const fieldPreview = Object.fromEntries(
+      fieldKeys.slice(0, 5).map((fieldName) => {
+        return [fieldName, summarizeFieldValue(fields.get(fieldName))];
+      })
+    );
+
     console.info("[receipt.parse] Mindee response", {
       filename: req.file.originalname ?? "receipt.jpg",
-      jobId: job?.id,
-      status: job?.status,
-      fieldKeys: Object.keys(fields),
+      inferenceId,
+      fieldKeys,
+      fieldPreview,
     });
 
     res.json({
