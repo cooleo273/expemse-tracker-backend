@@ -54,9 +54,22 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
       inferenceParams
     );
 
+    type JobMetadata = { id?: string; status?: string };
+    const inferenceWithJob = response.inference as typeof response.inference & {
+      job?: JobMetadata;
+    };
+    const job = inferenceWithJob.job;
+    const fields = response.inference.result.fields ?? {};
+    console.info("[receipt.parse] Mindee response", {
+      filename: req.file.originalname ?? "receipt.jpg",
+      jobId: job?.id,
+      status: job?.status,
+      fieldKeys: Object.keys(fields),
+    });
+
     res.json({
       inference: response.inference,
-      fields: response.inference.result.fields ?? {},
+      fields,
     });
   } catch (error) {
     console.error("Mindee processing failed", error);
