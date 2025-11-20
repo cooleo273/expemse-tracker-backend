@@ -53,12 +53,18 @@ interface FlatFieldValueObject {
 
 type FlatFieldValue = string | number | boolean | null | FlatFieldValue[] | FlatFieldValueObject;
 
-const flattenFields = (fields: Map<string, unknown>): FlatFieldValueObject => {
+const flattenFields = (fields: Map<string, unknown> | Record<string, unknown>): FlatFieldValueObject => {
   const flattened: FlatFieldValueObject = {};
 
-  fields.forEach((value, key) => {
-    flattened[key] = normalizeFieldValue(value);
-  });
+  if (fields instanceof Map) {
+    fields.forEach((value, key) => {
+      flattened[key] = normalizeFieldValue(value);
+    });
+  } else {
+    Object.entries(fields).forEach(([key, value]) => {
+      flattened[key] = normalizeFieldValue(value);
+    });
+  }
 
   return flattened;
 };
@@ -85,8 +91,13 @@ const normalizeFieldValue = (field: unknown): FlatFieldValue => {
     return field.items.map((item) => normalizeFieldValue(item));
   }
 
-  if (hasKey("fields", field) && field.fields instanceof Map) {
-    return flattenFields(field.fields as Map<string, unknown>);
+  if (hasKey("fields", field)) {
+    if (field.fields instanceof Map) {
+      return flattenFields(field.fields as Map<string, unknown>);
+    }
+    if (typeof field.fields === "object" && field.fields !== null) {
+      return flattenFields(field.fields as Record<string, unknown>);
+    }
   }
 
   return null;
@@ -127,6 +138,12 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
     const inferenceId = response.inference.id;
     const resultFields = response.inference.result.fields;
     const flattenedFields = flattenFields(resultFields as Map<string, unknown>);
+
+    // Overwrite total_amount with total_net if available
+    if (flattenedFields.total_net !== undefined && flattenedFields.total_net !== null) {
+      flattenedFields.total_amount = flattenedFields.total_net;
+    }
+
     const fieldKeys = Object.keys(flattenedFields);
     const fieldPreview = Object.fromEntries(
       fieldKeys.slice(0, 5).map((fieldName) => {
