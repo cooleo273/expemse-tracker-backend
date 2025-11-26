@@ -7,7 +7,9 @@
     "build": "tsc --project tsconfig.json",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "start": "node dist/index.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:categorize": "npx ts-node --project tsconfig.json scripts/testCategorize.ts",
+    "list:gemini-models": "npx ts-node --project tsconfig.json scripts/listGeminiModels.ts"
   },
   "keywords": [],
   "author": "",
