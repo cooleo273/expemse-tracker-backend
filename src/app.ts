@@ -173,6 +173,20 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
         flattenedFields.records.map((record) => ({ ...record })) as Record<string, unknown>[]
       );
       flattenedFields.records = categorizedRecords as FlatFieldValue;
+    } else if (Array.isArray(flattenedFields.line_items)) {
+      // Process line_items as records for categorization
+      const recordsFromLineItems = flattenedFields.line_items.map((item: any) => ({
+        amount: item.total_price || item.unit_price,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        occurredAt: flattenedFields.date,
+        payee: flattenedFields.supplier_name,
+        note: item.description,
+      }));
+      const categorizedRecords = await categorizeReceiptRecords(recordsFromLineItems);
+      flattenedFields.records = categorizedRecords as FlatFieldValue;
     }
 
     res.json({
