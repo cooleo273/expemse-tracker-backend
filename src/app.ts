@@ -4,6 +4,8 @@ import express from "express";
 import multer from "multer";
 import * as mindee from "mindee";
 
+import { categorizeReceiptRecords } from "./services/geminiCategorizer";
+
 const MINDEE_API_KEY = process.env.MINDEE_API_KEY;
 const MINDEE_MODEL_ID = process.env.MINDEE_MODEL_ID;
 
@@ -52,6 +54,14 @@ interface FlatFieldValueObject {
 }
 
 type FlatFieldValue = string | number | boolean | null | FlatFieldValue[] | FlatFieldValueObject;
+
+const isFlatFieldValueObject = (value: FlatFieldValue): value is FlatFieldValueObject => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const isRecordArray = (value: FlatFieldValue | undefined): value is FlatFieldValueObject[] => {
+  return Array.isArray(value) && value.every((item) => isFlatFieldValueObject(item));
+};
 
 const flattenFields = (fields: Map<string, unknown> | Record<string, unknown>): FlatFieldValueObject => {
   const flattened: FlatFieldValueObject = {};
@@ -157,6 +167,13 @@ app.post(receiptPaths, upload.single("file"), async (req, res) => {
       fieldKeys,
       fieldPreview,
     });
+
+    if (isRecordArray(flattenedFields.records)) {
+      const categorizedRecords = await categorizeReceiptRecords(
+        flattenedFields.records.map((record) => ({ ...record })) as Record<string, unknown>[]
+      );
+      flattenedFields.records = categorizedRecords as FlatFieldValue;
+    }
 
     res.json({
       inference: response.inference,
