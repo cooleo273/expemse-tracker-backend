@@ -11,6 +11,13 @@ const SUBCATEGORY_PARENT: Record<string, CategoryKey> = Object.values(SUBCATEGOR
     return acc;
   }, {} as Record<string, CategoryKey>);
 
+const SUBCATEGORY_MAP: Record<string, string> = Object.values(SUBCATEGORY_SETS)
+  .flat()
+  .reduce((acc, subcategory) => {
+    acc[subcategory.id] = subcategory.name;
+    return acc;
+  }, {} as Record<string, string>);
+
 let missingApiWarningLogged = false;
 
 export type ReceiptRecord = Record<string, unknown>;
@@ -73,7 +80,8 @@ export async function categorizeReceiptRecords(records: ReceiptRecord[]): Promis
       const result = structured[index] ?? {};
       const categoryId = normalizeCategoryId(result.categoryId);
       const subcategoryId = normalizeSubcategoryId(result.subcategoryId, categoryId);
-      return { ...record, category: categoryId, subcategoryId };
+      const subcategory = SUBCATEGORY_MAP[subcategoryId] ?? "Unknown";
+      return { ...record, category: categoryId, subcategoryId, subcategory };
     });
   } catch (error) {
     console.error("Gemini categorization failed", error);
@@ -153,5 +161,6 @@ function normalizeSubcategoryId(value: string | undefined, categoryId: CategoryK
 }
 
 function applyFallback(record: ReceiptRecord): ReceiptRecord {
-  return { ...record, category: DEFAULT_CATEGORY_ID, subcategoryId: DEFAULT_SUBCATEGORY_ID };
+  const subcategory = SUBCATEGORY_MAP[DEFAULT_SUBCATEGORY_ID] ?? "Unknown";
+  return { ...record, category: DEFAULT_CATEGORY_ID, subcategoryId: DEFAULT_SUBCATEGORY_ID, subcategory };
 }
